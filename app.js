@@ -14,7 +14,9 @@
       task_fallback_en: "No English task available.",
       task_fallback_ru: "No Russian task available.",
       task_loading: "Please wait a moment...",
-      task_error: "Please open the bot chat and try again."
+      task_error: "Please open the bot chat and try again.",
+      next_prompt_in: "Next prompt in",
+      next_prompt_unknown: "--:--:--"
     },
     de: {
       status: "Status",
@@ -30,7 +32,9 @@
       task_fallback_en: "Keine englische Aufgabe verfuegbar.",
       task_fallback_ru: "Keine russische Aufgabe verfuegbar.",
       task_loading: "Bitte kurz warten...",
-      task_error: "Bitte im Bot-Chat erneut oeffnen."
+      task_error: "Bitte im Bot-Chat erneut oeffnen.",
+      next_prompt_in: "Naechster Impuls in",
+      next_prompt_unknown: "--:--:--"
     },
     ru: {
       status: "Статус",
@@ -46,9 +50,13 @@
       task_fallback_en: "Нет задания на английском.",
       task_fallback_ru: "Нет задания на русском.",
       task_loading: "Пожалуйста, подождите...",
-      task_error: "Откройте чат бота и попробуйте снова."
+      task_error: "Откройте чат бота и попробуйте снова.",
+      next_prompt_in: "Следующий вопрос через",
+      next_prompt_unknown: "--:--:--"
     }
   };
+
+  let countdownTimerId = null;
 
   function normalizeBaseLanguage(languageCode) {
     return String(languageCode || "")
@@ -147,7 +155,96 @@
     return "";
   }
 
-  function render(uiLang, data) {
+  function parsePositiveInteger(value) {
+    const parsed = Number.parseInt(String(value || ""), 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return null;
+    }
+
+    return parsed;
+  }
+
+  function getIntervalMinutes(params, payload) {
+    const fromPayload = parsePositiveInteger(payload?.round_interval_minutes);
+    if (fromPayload) {
+      return fromPayload;
+    }
+
+    const fromParam =
+      parsePositiveInteger(params.get("interval_minutes")) ||
+      parsePositiveInteger(params.get("interval"));
+    if (fromParam) {
+      return fromParam;
+    }
+
+    const fromConfig = parsePositiveInteger(window.APP_CONFIG?.intervalMinutes);
+    if (fromConfig) {
+      return fromConfig;
+    }
+
+    return null;
+  }
+
+  function parseIsoDateToMs(value) {
+    const parsed = Date.parse(cleanText(value));
+    if (!Number.isFinite(parsed)) {
+      return null;
+    }
+
+    return parsed;
+  }
+
+  function pad2(value) {
+    return String(value).padStart(2, "0");
+  }
+
+  function formatCountdown(remainingMs) {
+    const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`;
+  }
+
+  function stopCountdown() {
+    if (countdownTimerId) {
+      clearInterval(countdownTimerId);
+      countdownTimerId = null;
+    }
+  }
+
+  function renderCountdownText(uiLang, text) {
+    const el = document.getElementById("countdown-pill");
+    if (!el) {
+      return;
+    }
+
+    el.textContent = `${t(uiLang, "next_prompt_in")}: ${text}`;
+  }
+
+  function renderCountdownUnknown(uiLang) {
+    stopCountdown();
+    renderCountdownText(uiLang, t(uiLang, "next_prompt_unknown"));
+  }
+
+  function renderCountdown(uiLang, data, intervalMinutes) {
+    const createdAtMs = parseIsoDateToMs(data?.latest_round_created_at);
+    if (!createdAtMs || !intervalMinutes) {
+      renderCountdownUnknown(uiLang);
+      return;
+    }
+
+    const dueAtMs = createdAtMs + intervalMinutes * 60 * 1000;
+    const tick = () => {
+      renderCountdownText(uiLang, formatCountdown(dueAtMs - Date.now()));
+    };
+
+    stopCountdown();
+    tick();
+    countdownTimerId = setInterval(tick, 1000);
+  }
+
+  function render(uiLang, data, intervalMinutes) {
     const status = cleanText(data?.status) || "none";
     const titleEn = cleanText(data?.title_en);
     const titleRu = cleanText(data?.title_ru);
@@ -173,26 +270,27 @@
     document.getElementById("task-title-secondary").textContent = secondaryTitle;
     document.getElementById("task-text-primary").textContent = primaryTask;
     document.getElementById("task-text-secondary").textContent = secondaryTask;
+    renderCountdown(uiLang, data, intervalMinutes);
   }
 
-  function renderLoading(uiLang) {
+  function renderLoading(uiLang, intervalMinutes) {
     render(uiLang, {
       status: "loading",
       title_en: t(uiLang, "title_loading"),
       title_ru: t(uiLang, "title_loading"),
       task_en: t(uiLang, "task_loading"),
       task_ru: t(uiLang, "task_loading")
-    });
+    }, intervalMinutes);
   }
 
-  function renderError(uiLang) {
+  function renderError(uiLang, intervalMinutes) {
     render(uiLang, {
       status: "error",
       title_en: t(uiLang, "title_error"),
       title_ru: t(uiLang, "title_error"),
       task_en: t(uiLang, "task_error"),
       task_ru: t(uiLang, "task_error")
-    });
+    }, intervalMinutes);
   }
 
   async function tryEnterFullscreen(tg) {
@@ -272,24 +370,26 @@
   const uiLang = resolveUiLanguage(params.get("lang"), telegramLanguage);
   const apiUrl = getApiUrl(params);
   const initData = cleanText(tg?.initData || "");
+  const fallbackIntervalMinutes = getIntervalMinutes(params, null);
 
-  renderLoading(uiLang);
+  renderLoading(uiLang, fallbackIntervalMinutes);
   if (shouldAutoFullscreen(tg)) {
     void tryEnterFullscreen(tg);
   }
 
   if (!apiUrl || !initData) {
-    renderError(uiLang);
+    renderError(uiLang, fallbackIntervalMinutes);
     return;
   }
 
   void (async () => {
     try {
       const payload = await fetchTaskFromApi(apiUrl, initData);
-      render(uiLang, payload);
+      const intervalMinutes = getIntervalMinutes(params, payload) || fallbackIntervalMinutes;
+      render(uiLang, payload, intervalMinutes);
     } catch (error) {
       console.error("[miniapp] task-fetch-error", error?.message || error);
-      renderError(uiLang);
+      renderError(uiLang, fallbackIntervalMinutes);
     }
   })();
 })();
