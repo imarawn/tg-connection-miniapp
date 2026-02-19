@@ -11,8 +11,6 @@
       title_fallback: "Connection Task",
       title_loading: "Loading task...",
       title_error: "Could not load task",
-      label_en: "English",
-      label_ru: "Russian",
       task_fallback_en: "No English task available.",
       task_fallback_ru: "No Russian task available.",
       task_loading: "Please wait a moment...",
@@ -29,8 +27,6 @@
       title_fallback: "Verbindungsaufgabe",
       title_loading: "Aufgabe wird geladen...",
       title_error: "Aufgabe konnte nicht geladen werden",
-      label_en: "Englisch",
-      label_ru: "Russisch",
       task_fallback_en: "Keine englische Aufgabe verfuegbar.",
       task_fallback_ru: "Keine russische Aufgabe verfuegbar.",
       task_loading: "Bitte kurz warten...",
@@ -47,8 +43,6 @@
       title_fallback: "Задание для связи",
       title_loading: "Загрузка задания...",
       title_error: "Не удалось загрузить задание",
-      label_en: "Английский",
-      label_ru: "Русский",
       task_fallback_en: "Нет задания на английском.",
       task_fallback_ru: "Нет задания на русском.",
       task_loading: "Пожалуйста, подождите...",
@@ -63,14 +57,14 @@
   }
 
   function resolveUiLanguage(langParam, telegramLanguageCode) {
-    const fromParam = normalizeBaseLanguage(langParam);
-    if (copy[fromParam]) {
-      return fromParam;
-    }
-
     const fromTelegram = normalizeBaseLanguage(telegramLanguageCode);
     if (copy[fromTelegram]) {
       return fromTelegram;
+    }
+
+    const fromParam = normalizeBaseLanguage(langParam);
+    if (copy[fromParam]) {
+      return fromParam;
     }
 
     return "en";
@@ -81,6 +75,53 @@
       return "";
     }
     return value.trim();
+  }
+
+  function normalizeInsetValue(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num < 0) {
+      return 0;
+    }
+    return Math.round(num);
+  }
+
+  function resolveSafeAreaInsets(tg) {
+    const contentInsets = tg?.contentSafeAreaInset;
+    if (contentInsets && typeof contentInsets === "object") {
+      return contentInsets;
+    }
+
+    const safeInsets = tg?.safeAreaInset;
+    if (safeInsets && typeof safeInsets === "object") {
+      return safeInsets;
+    }
+
+    return {
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0
+    };
+  }
+
+  function applySafeAreaInsets(tg) {
+    const insets = resolveSafeAreaInsets(tg);
+    const rootStyle = document.documentElement.style;
+    rootStyle.setProperty("--safe-top", `${normalizeInsetValue(insets.top)}px`);
+    rootStyle.setProperty("--safe-right", `${normalizeInsetValue(insets.right)}px`);
+    rootStyle.setProperty("--safe-bottom", `${normalizeInsetValue(insets.bottom)}px`);
+    rootStyle.setProperty("--safe-left", `${normalizeInsetValue(insets.left)}px`);
+  }
+
+  function bindSafeAreaUpdates(tg) {
+    if (!tg?.onEvent) {
+      return;
+    }
+
+    const updateInsets = () => applySafeAreaInsets(tg);
+    tg.onEvent("safeAreaChanged", updateInsets);
+    tg.onEvent("contentSafeAreaChanged", updateInsets);
+    tg.onEvent("viewportChanged", updateInsets);
   }
 
   function t(lang, key) {
@@ -112,18 +153,26 @@
     const titleRu = cleanText(data?.title_ru);
     const taskEn = cleanText(data?.task_en);
     const taskRu = cleanText(data?.task_ru);
-
-    const resolvedTitle = uiLang === "ru"
+    const preferRussianFirst = uiLang === "ru";
+    const primaryTitle = preferRussianFirst
       ? (titleRu || titleEn || t(uiLang, "title_fallback"))
       : (titleEn || titleRu || t(uiLang, "title_fallback"));
+    const secondaryTitle = preferRussianFirst
+      ? (titleEn || titleRu || t(uiLang, "title_fallback"))
+      : (titleRu || titleEn || t(uiLang, "title_fallback"));
+    const primaryTask = preferRussianFirst
+      ? (taskRu || t(uiLang, "task_fallback_ru"))
+      : (taskEn || t(uiLang, "task_fallback_en"));
+    const secondaryTask = preferRussianFirst
+      ? (taskEn || t(uiLang, "task_fallback_en"))
+      : (taskRu || t(uiLang, "task_fallback_ru"));
 
     document.documentElement.lang = uiLang;
     document.getElementById("status-pill").textContent = `${t(uiLang, "status")}: ${statusLabel(uiLang, status)}`;
-    document.getElementById("task-title").textContent = resolvedTitle;
-    document.getElementById("task-label-en").textContent = t(uiLang, "label_en");
-    document.getElementById("task-label-ru").textContent = t(uiLang, "label_ru");
-    document.getElementById("task-text-en").textContent = taskEn || t(uiLang, "task_fallback_en");
-    document.getElementById("task-text-ru").textContent = taskRu || t(uiLang, "task_fallback_ru");
+    document.getElementById("task-title-primary").textContent = primaryTitle;
+    document.getElementById("task-title-secondary").textContent = secondaryTitle;
+    document.getElementById("task-text-primary").textContent = primaryTask;
+    document.getElementById("task-text-secondary").textContent = secondaryTask;
   }
 
   function renderLoading(uiLang) {
@@ -200,6 +249,8 @@
   const tg = window.Telegram?.WebApp;
   if (tg) {
     tg.ready();
+    applySafeAreaInsets(tg);
+    bindSafeAreaUpdates(tg);
   }
 
   const params = new URLSearchParams(window.location.search);
