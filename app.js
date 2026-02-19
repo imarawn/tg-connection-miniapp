@@ -222,6 +222,20 @@
     return false;
   }
 
+  function shouldAutoFullscreen(tg) {
+    const platform = cleanText(tg?.platform).toLowerCase();
+    if (!platform) {
+      return false;
+    }
+
+    return (
+      platform === "android" ||
+      platform === "ios" ||
+      platform === "iphone" ||
+      platform === "ipad"
+    );
+  }
+
   async function fetchTaskFromApi(apiUrl, initData) {
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -260,7 +274,9 @@
   const initData = cleanText(tg?.initData || "");
 
   renderLoading(uiLang);
-  void tryEnterFullscreen(tg);
+  if (shouldAutoFullscreen(tg)) {
+    void tryEnterFullscreen(tg);
+  }
 
   if (!apiUrl || !initData) {
     renderError(uiLang);
