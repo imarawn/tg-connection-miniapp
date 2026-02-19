@@ -228,13 +228,26 @@
   }
 
   function renderCountdown(uiLang, data, intervalMinutes) {
-    const createdAtMs = parseIsoDateToMs(data?.latest_round_created_at);
-    if (!createdAtMs || !intervalMinutes) {
+    const explicitDueAtMs = parseIsoDateToMs(data?.next_due_at);
+    if (explicitDueAtMs) {
+      const tick = () => {
+        renderCountdownText(uiLang, formatCountdown(explicitDueAtMs - Date.now()));
+      };
+
+      stopCountdown();
+      tick();
+      countdownTimerId = setInterval(tick, 1000);
+      return;
+    }
+
+    if (!intervalMinutes) {
       renderCountdownUnknown(uiLang);
       return;
     }
 
-    const dueAtMs = createdAtMs + intervalMinutes * 60 * 1000;
+    const createdAtMs = parseIsoDateToMs(data?.latest_round_created_at);
+    const baseMs = createdAtMs || Date.now();
+    const dueAtMs = baseMs + intervalMinutes * 60 * 1000;
     const tick = () => {
       renderCountdownText(uiLang, formatCountdown(dueAtMs - Date.now()));
     };
