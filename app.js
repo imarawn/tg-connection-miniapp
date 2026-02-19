@@ -42,37 +42,9 @@
     return value.trim();
   }
 
-  async function tryEnterFullscreen(tg) {
-    try {
-      if (tg?.requestFullscreen) {
-        await tg.requestFullscreen();
-        return true;
-      }
-    } catch (_error) {
-      // continue with fallbacks
-    }
-
-    try {
-      if (document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen();
-        return true;
-      }
-    } catch (_error) {
-      // browser/webview may reject this API
-    }
-
-    if (tg?.expand) {
-      tg.expand();
-      return true;
-    }
-
-    return false;
-  }
-
   const tg = window.Telegram?.WebApp;
   if (tg) {
     tg.ready();
-    tg.expand();
   }
 
   const params = new URLSearchParams(window.location.search);
@@ -109,5 +81,4 @@
   document.getElementById("task-label-secondary").textContent = secondary.label;
   document.getElementById("task-secondary").textContent = secondary.text;
 
-  void tryEnterFullscreen(tg);
 })();
