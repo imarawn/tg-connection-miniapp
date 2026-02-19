@@ -7,7 +7,10 @@
       status_revealed: "Revealed",
       status_none: "No active round",
       title_fallback: "Connection Task",
-      task_fallback: "No task available yet."
+      label_en: "English",
+      label_ru: "Russian",
+      task_fallback_en: "No English task available.",
+      task_fallback_ru: "No Russian task available."
     },
     de: {
       status: "Status",
@@ -16,7 +19,10 @@
       status_revealed: "Aufgedeckt",
       status_none: "Keine aktive Runde",
       title_fallback: "Verbindungsaufgabe",
-      task_fallback: "Noch keine Aufgabe verfuegbar."
+      label_en: "Englisch",
+      label_ru: "Russisch",
+      task_fallback_en: "Keine englische Aufgabe verfuegbar.",
+      task_fallback_ru: "Keine russische Aufgabe verfuegbar."
     },
     ru: {
       status: "Статус",
@@ -25,7 +31,10 @@
       status_revealed: "Показано",
       status_none: "Нет активного раунда",
       title_fallback: "Задание для связи",
-      task_fallback: "Пока нет активного задания."
+      label_en: "Английский",
+      label_ru: "Русский",
+      task_fallback_en: "Нет задания на английском.",
+      task_fallback_ru: "Нет задания на русском."
     }
   };
 
@@ -102,13 +111,22 @@
   const uiLang = resolveUiLanguage(params.get("lang"), telegramLanguage);
 
   const status = cleanText(params.get("status")) || "none";
-  const title = cleanText(params.get("title")) || t(uiLang, "title_fallback");
-  const task = cleanText(params.get("task")) || t(uiLang, "task_fallback");
+  const titleEn = cleanText(params.get("title_en") || params.get("title"));
+  const titleRu = cleanText(params.get("title_ru"));
+  const taskEn = cleanText(params.get("task_en") || params.get("task"));
+  const taskRu = cleanText(params.get("task_ru"));
+
+  const resolvedTitle = uiLang === "ru"
+    ? (titleRu || titleEn || t(uiLang, "title_fallback"))
+    : (titleEn || titleRu || t(uiLang, "title_fallback"));
 
   document.documentElement.lang = uiLang;
   document.getElementById("status-pill").textContent = `${t(uiLang, "status")}: ${statusLabel(uiLang, status)}`;
-  document.getElementById("task-title").textContent = title;
-  document.getElementById("task-text").textContent = task;
+  document.getElementById("task-title").textContent = resolvedTitle;
+  document.getElementById("task-label-en").textContent = t(uiLang, "label_en");
+  document.getElementById("task-label-ru").textContent = t(uiLang, "label_ru");
+  document.getElementById("task-text-en").textContent = taskEn || t(uiLang, "task_fallback_en");
+  document.getElementById("task-text-ru").textContent = taskRu || t(uiLang, "task_fallback_ru");
 
   void tryEnterFullscreen(tg);
 })();
