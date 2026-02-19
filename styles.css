@@ -77,10 +77,11 @@ body {
 }
 
 .pill {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 12px;
+  width: fit-content;
+  margin: 0 auto 12px;
   padding: 7px 12px;
   border-radius: 999px;
   border: 1px solid rgba(76, 201, 240, 0.34);
