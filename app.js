@@ -7,28 +7,26 @@
       status_revealed: "Revealed",
       status_none: "No active round",
       title_fallback: "Connection Task",
-      subtitle_no_task: "No task was attached to this menu state yet.",
+      subtitle_no_task: "No task is attached yet.",
       task_heading: "Task",
-      task_empty: "No task text provided.",
+      task_empty: "No task text available.",
       pair_label: "Pair",
       round_label: "Round",
-      lang_label: "Language",
-      technical_data: "Technical data"
+      fullscreen: "Open fullscreen"
     },
     de: {
       status: "Status",
       status_open: "Offen",
-      status_ready_to_reveal: "Bereit für Reveal",
-      status_revealed: "Freigegeben",
+      status_ready_to_reveal: "Bereit zum Aufdecken",
+      status_revealed: "Aufgedeckt",
       status_none: "Keine aktive Runde",
-      title_fallback: "Verbindungs-Aufgabe",
-      subtitle_no_task: "Für diesen Menü-Zustand wurden noch keine Aufgabendaten übertragen.",
+      title_fallback: "Verbindungsaufgabe",
+      subtitle_no_task: "Aktuell ist noch keine Aufgabe hinterlegt.",
       task_heading: "Aufgabe",
-      task_empty: "Kein Aufgabentext vorhanden.",
+      task_empty: "Kein Aufgabentext verfügbar.",
       pair_label: "Paar",
       round_label: "Runde",
-      lang_label: "Sprache",
-      technical_data: "Technische Daten"
+      fullscreen: "Vollbild öffnen"
     },
     ru: {
       status: "Статус",
@@ -37,13 +35,12 @@
       status_revealed: "Показано",
       status_none: "Нет активного раунда",
       title_fallback: "Задание для связи",
-      subtitle_no_task: "Для этого состояния меню данные задания еще не переданы.",
+      subtitle_no_task: "Пока нет активного задания.",
       task_heading: "Задание",
       task_empty: "Текст задания отсутствует.",
       pair_label: "Пара",
       round_label: "Раунд",
-      lang_label: "Язык",
-      technical_data: "Технические данные"
+      fullscreen: "Открыть на весь экран"
     }
   };
 
@@ -73,6 +70,33 @@
     return t(lang, key);
   }
 
+  async function tryEnterFullscreen(tg) {
+    try {
+      if (tg?.requestFullscreen) {
+        await tg.requestFullscreen();
+        return true;
+      }
+    } catch (_error) {
+      // fallback below
+    }
+
+    try {
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+        return true;
+      }
+    } catch (_error) {
+      // ignored; some webviews reject this API
+    }
+
+    if (tg?.expand) {
+      tg.expand();
+      return true;
+    }
+
+    return false;
+  }
+
   const tg = window.Telegram?.WebApp;
   if (tg) {
     tg.ready();
@@ -99,9 +123,7 @@
   document.documentElement.lang = lang;
   document.getElementById("status-pill").textContent = `${t(lang, "status")}: ${statusLabel(lang, status)}`;
   document.getElementById("title").textContent = title;
-  document.getElementById("subtitle").textContent = task
-    ? ""
-    : t(lang, "subtitle_no_task");
+  document.getElementById("subtitle").textContent = task ? "" : t(lang, "subtitle_no_task");
   document.getElementById("task-heading").textContent = t(lang, "task_heading");
   document.getElementById("task-text").textContent = task || t(lang, "task_empty");
 
@@ -109,16 +131,19 @@
   document.getElementById("pair-value").textContent = pairDisplay;
   document.getElementById("round-label").textContent = t(lang, "round_label");
   document.getElementById("round-value").textContent = roundId;
-  document.getElementById("lang-label").textContent = t(lang, "lang_label");
-  document.getElementById("lang-value").textContent = lang;
 
-  document.getElementById("debug-summary").textContent = t(lang, "technical_data");
-  document.getElementById("debug-content").textContent = JSON.stringify(
-    {
-      query: Object.fromEntries(params.entries()),
-      telegramUser: tg?.initDataUnsafe?.user || null
-    },
-    null,
-    2
-  );
+  const fullscreenButton = document.getElementById("fullscreen-btn");
+  if (fullscreenButton) {
+    fullscreenButton.textContent = t(lang, "fullscreen");
+    fullscreenButton.addEventListener("click", async () => {
+      fullscreenButton.disabled = true;
+      await tryEnterFullscreen(tg);
+      window.setTimeout(() => {
+        fullscreenButton.disabled = false;
+      }, 600);
+    });
+  }
+
+  // Try to maximize at launch in Telegram clients that support it.
+  void tryEnterFullscreen(tg);
 })();
