@@ -1,73 +1,45 @@
 (function main() {
-  const translations = {
+  const copy = {
     en: {
-      status: "Status",
-      status_open: "Open",
-      status_ready_to_reveal: "Ready to reveal",
-      status_revealed: "Revealed",
-      status_none: "No active round",
-      title_fallback: "Connection Task",
-      subtitle_no_task: "No task is attached yet.",
-      task_heading: "Task",
-      task_empty: "No task text available.",
-      pair_label: "Pair",
-      round_label: "Round",
-      fullscreen: "Open fullscreen"
-    },
-    de: {
-      status: "Status",
-      status_open: "Offen",
-      status_ready_to_reveal: "Bereit zum Aufdecken",
-      status_revealed: "Aufgedeckt",
-      status_none: "Keine aktive Runde",
-      title_fallback: "Verbindungsaufgabe",
-      subtitle_no_task: "Aktuell ist noch keine Aufgabe hinterlegt.",
-      task_heading: "Aufgabe",
-      task_empty: "Kein Aufgabentext verfügbar.",
-      pair_label: "Paar",
-      round_label: "Runde",
-      fullscreen: "Vollbild öffnen"
+      label_en: "English",
+      label_ru: "Russian",
+      empty_en: "No English task available.",
+      empty_ru: "No Russian task available."
     },
     ru: {
-      status: "Статус",
-      status_open: "Открыто",
-      status_ready_to_reveal: "Готово к показу",
-      status_revealed: "Показано",
-      status_none: "Нет активного раунда",
-      title_fallback: "Задание для связи",
-      subtitle_no_task: "Пока нет активного задания.",
-      task_heading: "Задание",
-      task_empty: "Текст задания отсутствует.",
-      pair_label: "Пара",
-      round_label: "Раунд",
-      fullscreen: "Открыть на весь экран"
+      label_en: "Английский",
+      label_ru: "Русский",
+      empty_en: "Нет задания на английском.",
+      empty_ru: "Нет задания на русском."
     }
   };
 
-  function getPreferredLanguage(params, telegramLanguageCode) {
-    const fromParam = (params.get("lang") || "").toLowerCase().split(/[-_]/)[0];
-    const fromTelegram = String(telegramLanguageCode || "")
+  function normalizeBaseLanguage(languageCode) {
+    return String(languageCode || "")
       .toLowerCase()
       .split(/[-_]/)[0];
+  }
 
-    if (translations[fromParam]) {
-      return fromParam;
+  function resolveUiLanguage(langParam, telegramLanguageCode) {
+    const paramBase = normalizeBaseLanguage(langParam);
+    if (paramBase === "ru") {
+      return "ru";
     }
 
-    if (translations[fromTelegram]) {
-      return fromTelegram;
+    const telegramBase = normalizeBaseLanguage(telegramLanguageCode);
+    if (telegramBase === "ru") {
+      return "ru";
     }
 
     return "en";
   }
 
-  function t(lang, key) {
-    return translations[lang]?.[key] || translations.en[key] || key;
-  }
+  function cleanTask(value) {
+    if (typeof value !== "string") {
+      return "";
+    }
 
-  function statusLabel(lang, status) {
-    const key = `status_${status || "none"}`;
-    return t(lang, key);
+    return value.trim();
   }
 
   async function tryEnterFullscreen(tg) {
@@ -77,7 +49,7 @@
         return true;
       }
     } catch (_error) {
-      // fallback below
+      // continue with fallbacks
     }
 
     try {
@@ -86,7 +58,7 @@
         return true;
       }
     } catch (_error) {
-      // ignored; some webviews reject this API
+      // browser/webview may reject this API
     }
 
     if (tg?.expand) {
@@ -105,45 +77,37 @@
 
   const params = new URLSearchParams(window.location.search);
   const telegramLanguage = tg?.initDataUnsafe?.user?.language_code || "";
-  const lang = getPreferredLanguage(params, telegramLanguage);
+  const uiLang = resolveUiLanguage(params.get("lang"), telegramLanguage);
+  const isRussianFirst = uiLang === "ru";
 
-  const status = params.get("status") || "none";
-  const title = params.get("title") || t(lang, "title_fallback");
-  const task = params.get("task") || "";
-  const roundId = params.get("round_id") || "-";
-  const pairingId = params.get("pairing_id") || "-";
-  const ownerName = params.get("owner_name") || "-";
-  const inviteeName = params.get("invitee_name") || "-";
+  const taskEn = cleanTask(params.get("task_en") || params.get("task") || "");
+  const taskRu = cleanTask(params.get("task_ru") || "");
 
-  const pairDisplay =
-    ownerName !== "-" || inviteeName !== "-"
-      ? `${ownerName} ↔ ${inviteeName}`
-      : `#${pairingId}`;
+  const primary = isRussianFirst
+    ? {
+        label: copy[uiLang].label_ru,
+        text: taskRu || copy[uiLang].empty_ru
+      }
+    : {
+        label: copy[uiLang].label_en,
+        text: taskEn || copy[uiLang].empty_en
+      };
 
-  document.documentElement.lang = lang;
-  document.getElementById("status-pill").textContent = `${t(lang, "status")}: ${statusLabel(lang, status)}`;
-  document.getElementById("title").textContent = title;
-  document.getElementById("subtitle").textContent = task ? "" : t(lang, "subtitle_no_task");
-  document.getElementById("task-heading").textContent = t(lang, "task_heading");
-  document.getElementById("task-text").textContent = task || t(lang, "task_empty");
+  const secondary = isRussianFirst
+    ? {
+        label: copy[uiLang].label_en,
+        text: taskEn || copy[uiLang].empty_en
+      }
+    : {
+        label: copy[uiLang].label_ru,
+        text: taskRu || copy[uiLang].empty_ru
+      };
 
-  document.getElementById("pair-label").textContent = t(lang, "pair_label");
-  document.getElementById("pair-value").textContent = pairDisplay;
-  document.getElementById("round-label").textContent = t(lang, "round_label");
-  document.getElementById("round-value").textContent = roundId;
+  document.documentElement.lang = uiLang;
+  document.getElementById("task-label-primary").textContent = primary.label;
+  document.getElementById("task-primary").textContent = primary.text;
+  document.getElementById("task-label-secondary").textContent = secondary.label;
+  document.getElementById("task-secondary").textContent = secondary.text;
 
-  const fullscreenButton = document.getElementById("fullscreen-btn");
-  if (fullscreenButton) {
-    fullscreenButton.textContent = t(lang, "fullscreen");
-    fullscreenButton.addEventListener("click", async () => {
-      fullscreenButton.disabled = true;
-      await tryEnterFullscreen(tg);
-      window.setTimeout(() => {
-        fullscreenButton.disabled = false;
-      }, 600);
-    });
-  }
-
-  // Try to maximize at launch in Telegram clients that support it.
   void tryEnterFullscreen(tg);
 })();

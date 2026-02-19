@@ -19,30 +19,15 @@
     <div class="bg-orb bg-orb-b"></div>
 
     <main class="app-shell">
-      <header class="hero">
-        <p id="status-pill" class="pill">Status</p>
-        <h1 id="title">Connection Task</h1>
-        <p id="subtitle" class="subtitle"></p>
-      </header>
-
-      <section class="card">
-        <h2 id="task-heading">Task</h2>
-        <p id="task-text" class="task"></p>
-      </section>
-
-      <section class="meta-grid" aria-label="Task metadata">
-        <article class="meta-card">
-          <h3 id="pair-label">Pair</h3>
-          <p id="pair-value">-</p>
+      <section class="card" aria-live="polite">
+        <article class="task-block">
+          <h1 id="task-label-primary" class="task-label">English</h1>
+          <p id="task-primary" class="task-text"></p>
         </article>
-        <article class="meta-card">
-          <h3 id="round-label">Round</h3>
-          <p id="round-value">-</p>
+        <article class="task-block">
+          <h2 id="task-label-secondary" class="task-label">Russian</h2>
+          <p id="task-secondary" class="task-text"></p>
         </article>
-      </section>
-
-      <section class="actions">
-        <button id="fullscreen-btn" class="btn" type="button">Fullscreen</button>
       </section>
     </main>
 
