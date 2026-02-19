@@ -1,16 +1,31 @@
 (function main() {
   const copy = {
     en: {
-      label_en: "English",
-      label_ru: "Russian",
-      empty_en: "No English task available.",
-      empty_ru: "No Russian task available."
+      status: "Status",
+      status_open: "Open",
+      status_ready_to_reveal: "Ready to reveal",
+      status_revealed: "Revealed",
+      status_none: "No active round",
+      title_fallback: "Connection Task",
+      task_fallback: "No task available yet."
+    },
+    de: {
+      status: "Status",
+      status_open: "Offen",
+      status_ready_to_reveal: "Bereit zum Aufdecken",
+      status_revealed: "Aufgedeckt",
+      status_none: "Keine aktive Runde",
+      title_fallback: "Verbindungsaufgabe",
+      task_fallback: "Noch keine Aufgabe verfuegbar."
     },
     ru: {
-      label_en: "Английский",
-      label_ru: "Русский",
-      empty_en: "Нет задания на английском.",
-      empty_ru: "Нет задания на русском."
+      status: "Статус",
+      status_open: "Открыто",
+      status_ready_to_reveal: "Готово к показу",
+      status_revealed: "Показано",
+      status_none: "Нет активного раунда",
+      title_fallback: "Задание для связи",
+      task_fallback: "Пока нет активного задания."
     }
   };
 
@@ -21,25 +36,60 @@
   }
 
   function resolveUiLanguage(langParam, telegramLanguageCode) {
-    const paramBase = normalizeBaseLanguage(langParam);
-    if (paramBase === "ru") {
-      return "ru";
+    const fromParam = normalizeBaseLanguage(langParam);
+    if (copy[fromParam]) {
+      return fromParam;
     }
 
-    const telegramBase = normalizeBaseLanguage(telegramLanguageCode);
-    if (telegramBase === "ru") {
-      return "ru";
+    const fromTelegram = normalizeBaseLanguage(telegramLanguageCode);
+    if (copy[fromTelegram]) {
+      return fromTelegram;
     }
 
     return "en";
   }
 
-  function cleanTask(value) {
+  function cleanText(value) {
     if (typeof value !== "string") {
       return "";
     }
-
     return value.trim();
+  }
+
+  function t(lang, key) {
+    return copy[lang]?.[key] || copy.en[key] || key;
+  }
+
+  function statusLabel(lang, status) {
+    const key = `status_${status || "none"}`;
+    return t(lang, key);
+  }
+
+  async function tryEnterFullscreen(tg) {
+    try {
+      if (tg?.requestFullscreen) {
+        await tg.requestFullscreen();
+        return true;
+      }
+    } catch (_error) {
+      // continue with fallbacks
+    }
+
+    try {
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+        return true;
+      }
+    } catch (_error) {
+      // browser/webview may reject this API
+    }
+
+    if (tg?.expand) {
+      tg.expand();
+      return true;
+    }
+
+    return false;
   }
 
   const tg = window.Telegram?.WebApp;
@@ -50,35 +100,15 @@
   const params = new URLSearchParams(window.location.search);
   const telegramLanguage = tg?.initDataUnsafe?.user?.language_code || "";
   const uiLang = resolveUiLanguage(params.get("lang"), telegramLanguage);
-  const isRussianFirst = uiLang === "ru";
 
-  const taskEn = cleanTask(params.get("task_en") || params.get("task") || "");
-  const taskRu = cleanTask(params.get("task_ru") || "");
-
-  const primary = isRussianFirst
-    ? {
-        label: copy[uiLang].label_ru,
-        text: taskRu || copy[uiLang].empty_ru
-      }
-    : {
-        label: copy[uiLang].label_en,
-        text: taskEn || copy[uiLang].empty_en
-      };
-
-  const secondary = isRussianFirst
-    ? {
-        label: copy[uiLang].label_en,
-        text: taskEn || copy[uiLang].empty_en
-      }
-    : {
-        label: copy[uiLang].label_ru,
-        text: taskRu || copy[uiLang].empty_ru
-      };
+  const status = cleanText(params.get("status")) || "none";
+  const title = cleanText(params.get("title")) || t(uiLang, "title_fallback");
+  const task = cleanText(params.get("task")) || t(uiLang, "task_fallback");
 
   document.documentElement.lang = uiLang;
-  document.getElementById("task-label-primary").textContent = primary.label;
-  document.getElementById("task-primary").textContent = primary.text;
-  document.getElementById("task-label-secondary").textContent = secondary.label;
-  document.getElementById("task-secondary").textContent = secondary.text;
+  document.getElementById("status-pill").textContent = `${t(uiLang, "status")}: ${statusLabel(uiLang, status)}`;
+  document.getElementById("task-title").textContent = title;
+  document.getElementById("task-text").textContent = task;
 
+  void tryEnterFullscreen(tg);
 })();
